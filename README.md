@@ -1,6 +1,6 @@
 # agent.sh
 
-`agent.sh` is a tiny Linux shell agent CLI built on CortexFS.
+`agent.sh` is a tiny Linux shell agent CLI built around CortexFS.
 
 It stays deliberately small:
 
@@ -44,4 +44,4 @@ $CTX_ROOT/cluster/local/state
 $CTX_ROOT/cluster/local/queue/default/{pending,running,done,failed}
 ```
 
-CortexFS owns routing, policy, audit, execution, memory, and export. `agent.sh` is only a tiny Unix front end. Terminal execution is one explicit MCP tool, not the identity of the project.
+CortexFS owns routing, policy, audit, execution, memory, cluster scheduling, and export. `agent.sh` is only a tiny Unix front end for that ABI. Terminal execution is one explicit MCP tool, not the identity of the project.

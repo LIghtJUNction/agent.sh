@@ -1,10 +1,12 @@
 ---
 name: cortexfs-agent
-description: This skill should be used when working on the dependency-free agent.sh CLI built on CortexFS for AI calls, MCP stdio, and cluster task submission.
+description: This skill should be used when working on the dependency-free agent.sh CLI whose core is CortexFS: AI calls, MCP stdio, and cluster task submission all go through the filesystem ABI.
 version: 0.2.0
 ---
 
 # cortexfs-agent
+
+Core identity: this is a CortexFS agent front end, not a terminal-agent skill.
 
 Rules:
 

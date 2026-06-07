@@ -10,7 +10,7 @@ QUEUE=${CORTEX_QUEUE:-default}
 
 die(){ printf 'agent.sh: %s\n' "$*" >&2; exit 1; }
 usage(){ cat <<'EOF'
-agent.sh - tiny CortexFS/MCP agent-cluster CLI
+agent.sh - tiny CortexFS agent CLI
 
 usage:
   agent.sh ask <prompt>
