@@ -100,7 +100,7 @@ mcp(){
   while IFS= read -r line; do
     id=$(json_get_string id "$line" || printf 'null'); method=$(json_get_string method "$line" || true)
     case "$method" in
-      initialize) mcp_result "$id" "{\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"agent.sh\",\"version\":\"$VERSION\"},\"capabilities\":{\"tools\":{}}}" ;;
+      initialize) mcp_result "$id" "{\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"agent\",\"version\":\"$VERSION\"},\"capabilities\":{\"tools\":{}}}" ;;
       tools/list) mcp_result "$id" "$(mcp_tools)" ;;
       tools/call) mcp_call "$id" "$line" ;;
       notifications/*) ;;
