@@ -3,7 +3,13 @@
 `agent.sh` is a tiny Linux shell agent CLI built around the CortexFS ABI.
 It stays deliberately small: no `jq`, Python, Node, npm, Cargo, cloud SDK, or package manager dependency.
 
-The script talks to CortexFS by atomic `rename` into `inbox/*.req.json`; CortexFS owns routing, policy, audit, execution, memory, cluster scheduling, and export.
+Interactive agent traffic uses CortexFS thread sockets. Running `./agent.sh`,
+`chat`, `thread`, `repl`, and MCP `thread.send` write JSONL to
+`$CTX_HOME/thread/<session>/io.sock` and render streamed events as human text.
+
+Atomic `rename` into `inbox/*.req.json` is kept only for non-interactive file
+ABI commands such as `ask`, explicit `submit`, `cluster-submit`, `tool`, `read`,
+and `run`.
 
 ## Usage
 
@@ -19,8 +25,6 @@ export CTX_HOME="/ctx/home/$(id -u)"
 ./agent.sh chat demo "continue"
 ./agent.sh thread demo "continue"
 ./agent.sh repl demo
-./agent.sh submit '{"task":"inspect","target":"README.md"}'
-./agent.sh cluster-submit '{"task":"summarize","input":"cluster visible"}'
 ./agent.sh cluster
 ./agent.sh read home/1000/thread/demo/messages.jsonl
 ./agent.sh run 'echo explicit terminal request'
@@ -35,28 +39,51 @@ export CTX_HOME="/ctx/home/$(id -u)"
 `cluster.submit`, `cortex.ask`, and `cortex.status`.
 Use `mcp-config` to print a JSON snippet for registering this server.
 
-## CortexFS ABI paths
+## Interactive Socket Path
 
-Primary file submissions:
+Conversational thread traffic uses the realtime socket fast path:
+
+```text
+$CTX_HOME/thread/<session>/io.sock
+```
+
+`chat` and `thread` send one JSON object to the socket:
+
+```json
+{"op":"send","session":"cwd-cortexfs-123","scope":"workspace","cwd":"/work/cortexfs","message":{"role":"user","content":"continue"}}
+```
+
+The listener streams JSONL events:
+
+```jsonl
+{"type":"accepted","request_id":"thread-cwd-cortexfs-123-000001"}
+{"type":"delta","content":"..."}
+{"type":"message","role":"assistant","content":"..."}
+{"type":"done","request_id":"thread-cwd-cortexfs-123-000001"}
+```
+
+`agent.sh` renders these events as plain assistant text by default. Set
+`CORTEX_RAW_EVENTS=1` only when another program needs the raw JSONL stream.
+
+Socket traffic is still CortexFS-owned: the runtime validates peer credentials,
+uses the configured route/provider policy, appends `messages.jsonl`, updates
+`latest.md`, `state`, `fingerprint`, and writes audit facts.
+
+## File ABI Paths
+
+These commands intentionally use file submissions because they are not
+interactive chat turns:
 
 ```text
 $CTX_HOME/api/<format>/inbox/<id>.req.json
-$CTX_HOME/thread/<thread>/inbox/<id>.req.json
 $CTX_ROOT/agent/<agent>/inbox/<id>.req.json
 $CTX_ROOT/cluster/<cluster>/queue/<queue>/pending/<id>.req.json
 $CTX_ROOT/tool/<tool-id>/invoke/inbox/<id>.req.json
 ```
 
-Conversational thread traffic uses the realtime socket fast path:
-
-```text
-$CTX_HOME/thread/<thread>/io.sock
-```
-
-`ask` is a one-shot API submission. `chat` and `thread` send JSONL to `io.sock`
-and expect the daemon/listener to stream accepted/delta/message/done events.
-They do not fall back to `thread/<thread>/inbox`; if the listener is not running,
-the command reports the socket failure.
+`ask` is a one-shot API submission. `submit` targets `agent/<agent>/inbox`.
+`cluster-submit` enqueues background work. They are explicit lower-level ABI
+commands and are not part of the default chat experience.
 
 `repl` reads prompts from stdin and sends each non-empty line through the same
 thread socket.
