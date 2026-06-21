@@ -25,6 +25,11 @@ export CTX_HOME="/ctx/home/$(id -u)"
 ./agent.sh chat demo "continue"
 ./agent.sh thread demo "continue"
 ./agent.sh repl demo
+./agent.sh sessions
+./agent.sh resume cwd-cortexfs-123
+./agent.sh new focused
+./agent.sh temp
+./agent.sh share team
 ./agent.sh cluster
 ./agent.sh read home/1000/thread/demo/messages.jsonl
 ./agent.sh run 'echo explicit terminal request'
@@ -69,6 +74,51 @@ Socket traffic is still CortexFS-owned: the runtime validates peer credentials,
 uses the configured route/provider policy, appends `messages.jsonl`, updates
 `latest.md`, `state`, `fingerprint`, and writes audit facts.
 
+## Sessions And Resume
+
+The default session is derived from the current working directory:
+
+```text
+cwd-<directory-name>-<path-hash>
+```
+
+Sessions are CortexFS threads. `agent.sh` does not keep a private chat history.
+It reads and resumes sessions through the native CortexFS thread view:
+
+```text
+$CTX_HOME/thread/list
+$CTX_HOME/thread/current
+$CTX_HOME/thread/<session>/messages.jsonl
+$CTX_HOME/thread/<session>/latest.md
+```
+
+List available sessions:
+
+```bash
+./agent.sh sessions
+```
+
+Resume one by id:
+
+```bash
+./agent.sh resume cwd-cortexfs-123
+```
+
+Inside the interactive REPL:
+
+```text
+/sessions
+/resume cwd-cortexfs-123
+/new focused
+/temp
+/share team
+```
+
+`/new <id>` creates a private persistent session, `/share <id>` creates a
+shared persistent session, and `/temp` creates an ephemeral session that is not
+restored after remount. Persistent sessions are restored by CortexFS on the next
+mount, then shown again by `sessions` and `/sessions`.
+
 ## File ABI Paths
 
 These commands intentionally use file submissions because they are not
@@ -97,6 +147,11 @@ session. Slash commands are handled locally:
 /providers
 /models
 /route
+/sessions
+/resume <session>
+/new <session>
+/temp
+/share <session>
 /read <path>
 /run <command>
 /ask <prompt>
