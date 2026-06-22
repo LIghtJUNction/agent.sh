@@ -1,172 +1,81 @@
 # agent.sh
 
-`agent.sh` is a tiny Linux shell agent CLI built around the CortexFS ABI.
-It stays deliberately small: no `jq`, Python, Node, npm, Cargo, cloud SDK, or package manager dependency.
+`agent.sh` is a tiny Linux shell frontend for the CortexFS v1 agent ABI. It is
+not a runtime, provider SDK, policy engine, scheduler, or chat database.
 
-Interactive agent traffic uses CortexFS thread sockets. Running `./agent.sh`,
-`chat`, `thread`, `repl`, and MCP `thread.send` write JSONL to
-`$CTX_HOME/thread/<session>/io.sock` and render streamed events as human text.
+It only uses stable v1 paths:
 
-Atomic `rename` into `inbox/*.req.json` is kept only for non-interactive file
-ABI commands such as `ask`, explicit `submit`, `cluster-submit`, `tool`, `read`,
-and `run`.
+```text
+/ctx/agent/<agent>.sock
+/ctx/agent/<agent>.d/
+/ctx/home/<uid>/agent/<agent>/session/
+/ctx/tool
+/ctx/home/<uid>/tool
+/ctx/shared
+```
+
+It does not use root namespaces such as `provider`, `format`, `cluster`,
+`control`, `thread`, `workflow`, `mcp`, or `skill`.
 
 ## Usage
 
 ```bash
 export CTX_ROOT=/ctx
 export CTX_HOME="/ctx/home/$(id -u)"
+export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 
-./agent.sh
-./agent.sh status
-./agent.sh models
-./agent.sh route
-./agent.sh ask "Reply with cortexfs-ok"
-./agent.sh chat demo "continue"
-./agent.sh thread demo "continue"
-./agent.sh repl demo
-./agent.sh sessions
-./agent.sh resume cwd-cortexfs-123
-./agent.sh new focused
-./agent.sh temp
-./agent.sh share team
-./agent.sh cluster
-./agent.sh read home/1000/thread/demo/messages.jsonl
-./agent.sh run 'echo explicit terminal request'
-./agent.sh tool filesystem.read /status
-./agent.sh drain 1
-./agent.sh mcp
-./agent.sh mcp-config
+./agent.sh coder
+./agent.sh coder "fix tests"
+./agent.sh --session default coder
+./agent.sh --resume coder
+./agent.sh --history coder
+./agent.sh --latest coder
+./agent.sh --pack coder
+./agent.sh --tools coder
+./agent.sh --children coder
+./agent.sh --cancel coder
 ```
 
-`mcp` exposes a stdio MCP server with Claude Code-style explicit tools:
-`thread.send`, `filesystem.read`, `terminal.run`, `agent.submit`,
-`cluster.submit`, `cortex.ask`, and `cortex.status`.
-Use `mcp-config` to print a JSON snippet for registering this server.
+With no prompt, `agent.sh AGENT` reads lines from stdin or an interactive TTY
+and sends each non-empty line to `/ctx/agent/<agent>.sock`.
 
-## Interactive Socket Path
-
-Conversational thread traffic uses the realtime socket fast path:
-
-```text
-$CTX_HOME/thread/<session>/io.sock
-```
-
-`chat` and `thread` send one JSON object to the socket:
-
-```json
-{"op":"send","session":"cwd-cortexfs-123","scope":"workspace","cwd":"/work/cortexfs","message":{"role":"user","content":"continue"}}
-```
-
-The listener streams JSONL events:
+Socket requests are JSONL:
 
 ```jsonl
-{"type":"accepted","request_id":"thread-cwd-cortexfs-123-000001"}
-{"type":"delta","content":"..."}
-{"type":"message","role":"assistant","content":"..."}
-{"type":"done","request_id":"thread-cwd-cortexfs-123-000001"}
+{"op":"send","id":"agent-sh-...","session":"default","scope":"private","cwd":"/work","input":"fix tests"}
+{"op":"resume","session":"default"}
+{"op":"cancel","id":"run-1"}
 ```
 
-`agent.sh` renders these events as plain assistant text by default. Set
-`CORTEX_RAW_EVENTS=1` only when another program needs the raw JSONL stream.
+Responses are rendered as assistant text by default. Set `CORTEX_RAW_EVENTS=1`
+or pass `--raw` to print raw JSONL.
 
-Socket traffic is still CortexFS-owned: the runtime validates peer credentials,
-uses the configured route/provider policy, appends `messages.jsonl`, updates
-`latest.md`, `state`, `fingerprint`, and writes audit facts.
+## Sessions
 
-## Sessions And Resume
-
-The default session is derived from the current working directory:
+`agent.sh` never stores private history. It reads the v1 session tree:
 
 ```text
-cwd-<directory-name>-<path-hash>
+$CTX_HOME/agent/<agent>/session/index/current
+$CTX_HOME/agent/<agent>/session/<session>/messages.jsonl
+$CTX_HOME/agent/<agent>/session/<session>/events.jsonl
+$CTX_HOME/agent/<agent>/session/<session>/latest.md
+$CTX_HOME/agent/<agent>/session/<session>/context/
 ```
 
-Sessions are CortexFS threads. `agent.sh` does not keep a private chat history.
-It reads and resumes sessions through the native CortexFS thread view:
+If no session is selected, `index/current` is used when present, otherwise
+`default`.
+
+## Tools And Children
+
+`--tools` lists executable files found through `CTX_PATH` and
+`agent/<agent>.d/path`. It does not decide policy locally.
+
+`--children` reads:
 
 ```text
-$CTX_HOME/thread/list
-$CTX_HOME/thread/current
-$CTX_HOME/thread/<session>/messages.jsonl
-$CTX_HOME/thread/<session>/latest.md
+$CTX_HOME/agent/<agent>/session/<session>/context/child/
 ```
 
-List available sessions:
-
-```bash
-./agent.sh sessions
-```
-
-Resume one by id:
-
-```bash
-./agent.sh resume cwd-cortexfs-123
-```
-
-Inside the interactive REPL:
-
-```text
-/sessions
-/resume cwd-cortexfs-123
-/new focused
-/temp
-/share team
-```
-
-`/new <id>` creates a private persistent session, `/share <id>` creates a
-shared persistent session, and `/temp` creates an ephemeral session that is not
-restored after remount. Persistent sessions are restored by CortexFS on the next
-mount, then shown again by `sessions` and `/sessions`.
-
-## File ABI Paths
-
-These commands intentionally use file submissions because they are not
-interactive chat turns:
-
-```text
-$CTX_HOME/api/<format>/inbox/<id>.req.json
-$CTX_ROOT/agent/<agent>/inbox/<id>.req.json
-$CTX_ROOT/cluster/<cluster>/queue/<queue>/pending/<id>.req.json
-$CTX_ROOT/tool/<tool-id>/invoke/inbox/<id>.req.json
-```
-
-`ask` is a one-shot API submission. `submit` targets `agent/<agent>/inbox`.
-`cluster-submit` enqueues background work. They are explicit lower-level ABI
-commands and are not part of the default chat experience.
-
-`repl` reads prompts from stdin and sends each non-empty line through the same
-thread socket.
-
-Running `./agent.sh` with no arguments starts the same interactive socket
-session. Slash commands are handled locally:
-
-```text
-/status
-/doctor
-/providers
-/models
-/route
-/sessions
-/resume <session>
-/new <session>
-/temp
-/share <session>
-/read <path>
-/run <command>
-/ask <prompt>
-/exit
-```
-
-Observed runtime views:
-
-```text
-$CTX_HOME/model/{count,list,refresh}
-$CTX_HOME/route/<format>/{provider,model,reason}
-$CTX_ROOT/agent/<agent>/runtime/{state,pid,heartbeat,current_thread,current_task}
-$CTX_ROOT/control/{drain,queue_depth,last_drained}
-```
-
-`agent.sh` does not choose a provider or special-case any local model. Provider/model routing remains CortexFS policy.
-
-The main script is intentionally kept under 500 lines.
+The script is dependency-free in the project sense: no `jq`, Python, Node, npm,
+Cargo, cloud SDK, provider client, or package manager. Linux `nc` with Unix
+socket support is used for socket transport.
