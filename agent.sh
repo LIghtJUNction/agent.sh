@@ -297,7 +297,13 @@ parse_args(){
   SESSION=$(current_session "$AGENT")
   valid_session_name "$SESSION" || die "invalid session name: $SESSION"
   case "$MODE" in
-    send) [[ $# -gt 0 ]] && send_once "$AGENT" "$SESSION" "$*" || interactive "$AGENT" "$SESSION" ;;
+    send)
+      if [[ $# -gt 0 ]]; then
+        send_once "$AGENT" "$SESSION" "$*"
+      else
+        interactive "$AGENT" "$SESSION"
+      fi
+      ;;
     resume) resume_agent "$AGENT" "$SESSION" ;;
     history) history_agent "$AGENT" "$SESSION" ;;
     latest) latest_agent "$AGENT" "$SESSION" ;;
