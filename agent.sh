@@ -86,6 +86,13 @@ request_id(){
   printf 'agent-sh-%s-%s' "$$" "$(date +%s%N 2>/dev/null || date +%s)"
 }
 
+agent_cwd(){
+  local agent=$1 cwd
+  cwd=$(read_text "$(agent_dir "$agent").d/cwd" | tr -d '\n')
+  [[ -n $cwd ]] && { printf '%s' "$cwd"; return; }
+  printf '/work'
+}
+
 frame_check(){
   local frame=$1
   if (( ${#frame} > 1048576 )); then
@@ -139,7 +146,7 @@ socket_send(){
 
 send_once(){
   local agent=$1 session=$2 input=$3 id request cwd
-  id=$(request_id); cwd=${PWD:-/}
+  id=$(request_id); cwd=$(agent_cwd "$agent")
   request=$(printf '{"op":"send","id":"%s","session":"%s","scope":"private","cwd":"%s","input":"%s"}\n' \
     "$(json_escape "$id")" "$(json_escape "$session")" "$(json_escape "$cwd")" "$(json_escape "$input")")
   socket_send "$agent" "$request"
