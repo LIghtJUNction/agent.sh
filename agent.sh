@@ -251,7 +251,7 @@ tool_log(){
 interactive(){
   local agent=$1 session=$2 line
   [[ -t 0 ]] && printf 'agent.sh %s  agent=%s session=%s\n' "$VERSION" "$agent" "$session" >&2
-  [[ -t 0 ]] && printf 'agent> ' >&2
+  [[ -t 0 ]] && printf '%s> ' "$agent" >&2
   while IFS= read -r line; do
     case "$line" in
       '') ;;
@@ -267,7 +267,7 @@ interactive(){
       /*) err "unknown command: $line" ;;
       *) send_once "$agent" "$session" "$line" || true ;;
     esac
-    [[ -t 0 ]] && printf 'agent> ' >&2
+    [[ -t 0 ]] && printf '%s> ' "$agent" >&2
   done
 }
 
