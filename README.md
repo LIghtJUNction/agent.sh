@@ -50,6 +50,10 @@ Socket requests are JSONL:
 Responses are rendered as assistant text by default. Set `CORTEX_RAW_EVENTS=1`
 or pass `--raw` to print raw JSONL.
 
+Interactive TTY output uses color by default. Set `CORTEX_COLOR=always` to
+force color, `CORTEX_COLOR=never` to disable it, or `NO_COLOR=1` for the
+standard no-color convention.
+
 ## Sessions
 
 `agent.sh` never stores private history. It reads the v1 session tree:

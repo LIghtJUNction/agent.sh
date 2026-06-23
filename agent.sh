@@ -10,7 +10,20 @@ MODE=send
 RAW_EVENTS=${CORTEX_RAW_EVENTS:-0}
 RUN_ID=${CORTEX_RUN_ID:-}
 
-err(){ printf 'agent.sh: %s\n' "$*" >&2; }
+COLOR_MODE=${CORTEX_COLOR:-auto}
+C_RESET= C_DIM= C_BRAND= C_AGENT= C_SESSION= C_ARROW= C_TOOL= C_ERR=
+if [[ $COLOR_MODE == always || ( $COLOR_MODE != never && -z ${NO_COLOR:-} && -t 2 ) ]]; then
+  C_RESET=$'\033[0m'
+  C_DIM=$'\033[38;2;112;122;138m'
+  C_BRAND=$'\033[38;2;111;219;214m'
+  C_AGENT=$'\033[38;2;196;181;253m'
+  C_SESSION=$'\033[38;2;164;230;139m'
+  C_ARROW=$'\033[38;2;255;203;107m'
+  C_TOOL=$'\033[38;2;137;180;250m'
+  C_ERR=$'\033[38;2;255;107;129m'
+fi
+
+err(){ printf '%sagent.sh%s %s%s%s\n' "$C_ERR" "$C_RESET" "$C_DIM" "$*" "$C_RESET" >&2; }
 die(){ err "$*"; exit 1; }
 
 usage(){ cat <<'EOF_USAGE'
@@ -116,12 +129,12 @@ render_events(){
         ;;
       tool_call)
         msg=$(json_text name "$line" || printf 'tool_call')
-        printf '[tool] %s\n' "$msg" >&2
+        printf '%s[tool]%s %s\n' "$C_TOOL" "$C_RESET" "$msg" >&2
         ;;
       error)
         code=$(json_text code "$line" || printf 'EIO')
         msg=$(json_text message "$line" || printf 'runtime error')
-        printf 'error: %s: %s\n' "$code" "$msg" >&2
+        printf '%serror%s %s%s%s %s\n' "$C_ERR" "$C_RESET" "$C_DIM" "$code" "$C_RESET" "$msg" >&2
         exit_code=1
         ;;
       pong)
@@ -255,10 +268,27 @@ tool_log(){
   die "missing tool log: $tool"
 }
 
+interactive_banner(){
+  local agent=$1 session=$2
+  printf '%sagent.sh%s %s%s%s  %sagent%s=%s%s%s  %ssession%s=%s%s%s\n' \
+    "$C_BRAND" "$C_RESET" \
+    "$C_DIM" "$VERSION" "$C_RESET" \
+    "$C_DIM" "$C_RESET" "$C_AGENT" "$agent" "$C_RESET" \
+    "$C_DIM" "$C_RESET" "$C_SESSION" "$session" "$C_RESET" >&2
+}
+
+interactive_prompt(){
+  local agent=$1 session=$2
+  printf '%s%s%s %s%s%s %s>%s ' \
+    "$C_AGENT" "$agent" "$C_RESET" \
+    "$C_DIM" "$session" "$C_RESET" \
+    "$C_ARROW" "$C_RESET" >&2
+}
+
 interactive(){
   local agent=$1 session=$2 line
-  [[ -t 0 ]] && printf 'agent.sh %s  agent=%s session=%s\n' "$VERSION" "$agent" "$session" >&2
-  [[ -t 0 ]] && printf '%s> ' "$agent" >&2
+  [[ -t 0 ]] && interactive_banner "$agent" "$session"
+  [[ -t 0 ]] && interactive_prompt "$agent" "$session"
   while IFS= read -r line; do
     case "$line" in
       '') ;;
@@ -274,7 +304,7 @@ interactive(){
       /*) err "unknown command: $line" ;;
       *) send_once "$agent" "$session" "$line" || true ;;
     esac
-    [[ -t 0 ]] && printf '%s> ' "$agent" >&2
+    [[ -t 0 ]] && interactive_prompt "$agent" "$session"
   done
   return 0
 }
