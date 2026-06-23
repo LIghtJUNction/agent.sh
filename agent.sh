@@ -269,6 +269,7 @@ interactive(){
     esac
     [[ -t 0 ]] && printf '%s> ' "$agent" >&2
   done
+  return 0
 }
 
 parse_args(){
