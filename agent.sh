@@ -79,6 +79,22 @@ agent_dir(){ printf '%s/agent/%s' "$CTX_ROOT" "$1"; }
 agent_home(){ printf '%s/agent/%s' "$CTX_HOME" "$1"; }
 agent_socket(){ printf '%s/agent/%s.sock' "$CTX_ROOT" "$1"; }
 
+systemd_socket_hint(){
+  local agent=$1 sock=$2 detail=$3 unit="cortexfs-agent@$agent.socket"
+  case "$detail" in
+    *"Connection refused"*|*"Operation not permitted"*)
+      err "agent socket is not accepting connections: $sock"
+      err "try starting the systemd socket listener:"
+      err "  sudo systemctl daemon-reload"
+      err "  sudo systemctl restart cortexfs.service"
+      err "  sudo systemctl start '$unit'"
+      err "then verify with:"
+      err "  systemctl status '$unit' --no-pager"
+      err "  printf '{\"op\":\"ping\"}\\n' | nc -U $sock"
+      ;;
+  esac
+}
+
 current_session(){
   local agent=$1 current
   if [[ -n $SESSION ]]; then
@@ -134,7 +150,7 @@ render_events(){
       error)
         code=$(json_text code "$line" || printf 'EIO')
         msg=$(json_text message "$line" || printf 'runtime error')
-        printf '%serror%s %s%s%s %s\n' "$C_ERR" "$C_RESET" "$C_DIM" "$code" "$C_RESET" "$msg" >&2
+        printf '%serror:%s %s%s%s: %s\n' "$C_ERR" "$C_RESET" "$C_DIM" "$code" "$C_RESET" "$msg" >&2
         exit_code=1
         ;;
       pong)
@@ -149,12 +165,25 @@ render_events(){
 }
 
 socket_send(){
-  local agent=$1 request=$2 sock timeout=${CORTEX_SOCKET_TIMEOUT:-30}
+  local agent=$1 request=$2 sock timeout=${CORTEX_SOCKET_TIMEOUT:-30} err_file status
   sock=$(agent_socket "$agent")
   [[ -S $sock ]] || die "missing agent socket: $sock"
   command -v nc >/dev/null 2>&1 || die "missing nc with Unix socket support"
   frame_check "$request"
-  printf '%s' "$request" | nc -U -N -w "$timeout" "$sock" | render_events
+  err_file=$(mktemp "${TMPDIR:-/tmp}/agent-sh.nc.XXXXXX")
+  set +e
+  printf '%s' "$request" | nc -U -N -w "$timeout" "$sock" 2>"$err_file" | render_events
+  status=$?
+  set -e
+  if [[ $status -ne 0 ]]; then
+    if [[ -s $err_file ]]; then
+      cat "$err_file" >&2
+      systemd_socket_hint "$agent" "$sock" "$(cat "$err_file")"
+    fi
+    rm -f "$err_file"
+    return "$status"
+  fi
+  rm -f "$err_file"
 }
 
 send_once(){

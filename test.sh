@@ -37,6 +37,7 @@ case "$(cat "$NC_MODE_FILE" 2>/dev/null || printf send)" in
   cancel) printf '{"type":"done","status":"cancelled"}\n' ;;
   raw) printf '{"type":"delta","text":"raw-ok"}\n{"type":"done","status":"ok"}\n' ;;
   error) printf '{"type":"error","code":"EACCES","message":"permission denied"}\n{"type":"done","status":"error"}\n' ;;
+  refused) printf 'nc: /ctx/agent/coder.sock: Connection refused\n' >&2; exit 1 ;;
   fail) exit 111 ;;
   *) printf '{"type":"start","run":"run-2"}\n{"type":"delta","text":"socket-ok"}\n{"type":"message","role":"assistant","text":"done"}\n{"type":"done","status":"ok"}\n' ;;
 esac
@@ -74,6 +75,18 @@ if PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" coder "fai
   printf 'send failure unexpectedly succeeded\n' >&2
   exit 1
 fi
+
+printf 'refused\n' >"$ROOT/nc.mode"
+stderr="$ROOT/refused.stderr"
+if PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" coder "refused socket" 2>"$stderr"; then
+  printf 'connection refused unexpectedly succeeded\n' >&2
+  exit 1
+fi
+refused_err=$(cat "$stderr")
+assert_contains "$refused_err" 'Connection refused'
+assert_contains "$refused_err" "sudo systemctl start 'cortexfs-agent@coder.socket'"
+assert_contains "$refused_err" "systemctl status 'cortexfs-agent@coder.socket' --no-pager"
+
 printf 'send\n' >"$ROOT/nc.mode"
 
 : >"$ROOT/nc.stdin"
