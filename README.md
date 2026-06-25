@@ -1,6 +1,6 @@
 # agent.sh
 
-`agent.sh` is a compatibility wrapper over `ctx agent` commands. It is not a
+`agent.sh` is a compatibility wrapper over `ctx agent-sh`. It is not a
 runtime, socket protocol implementation, provider SDK, policy engine,
 scheduler, or chat database.
 
@@ -43,8 +43,8 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ```
 
 With no prompt, `agent.sh AGENT` opens the agent chat REPL through
-`ctx agent repl AGENT`. With a prompt, it delegates to
-`ctx agent send AGENT`. Use `agent.sh --watch AGENT` to observe the agent
+`ctx agent-sh AGENT`, which dispatches to `ctx agent repl AGENT`. With a prompt,
+`ctx agent-sh` dispatches to `ctx agent send AGENT`. Use `agent.sh --watch AGENT` to observe the agent
 terminal read-only, or `agent.sh --attach AGENT` when you want to join the
 terminal and see `ctxterm -> tsh`.
 
