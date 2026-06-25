@@ -59,7 +59,7 @@ CTX_BIN=/path/to/ctx ./agent.sh coder
 The socket request shape used by `ctx` is JSONL:
 
 ```jsonl
-{"op":"send","id":"agent-sh-...","session":"default","scope":"private","cwd":"/work","input":"fix tests"}
+{"op":"send","id":"ctx-...","session":"default","scope":"private","cwd":"/work","input":"fix tests"}
 {"op":"resume","session":"default"}
 {"op":"cancel","id":"run-1"}
 ```
