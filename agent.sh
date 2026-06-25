@@ -15,6 +15,7 @@ usage:
   agent.sh [--session SESSION] AGENT
   agent.sh [--session SESSION] AGENT INPUT...
   agent.sh --chat AGENT
+  agent.sh --attach AGENT
   agent.sh --resume AGENT
   agent.sh --history AGENT
   agent.sh --pack AGENT
@@ -25,7 +26,7 @@ usage:
   agent.sh --raw AGENT "prompt"
 
 agent.sh is a compatibility wrapper over ctx agent commands.
-With no INPUT, it attaches to the agent terminal.
+With no INPUT, it opens the agent chat REPL. Use --attach for tsh.
 EOF_USAGE
 }
 
@@ -134,9 +135,6 @@ parse_args(){
     auto)
       if [[ $# -gt 0 ]]; then
         run_ctx agent send "$agent" "${session[@]}" "${raw[@]}" "$*"
-      fi
-      if [[ -t 0 ]]; then
-        attach_or_start_terminal "$agent" "${session[@]}"
       fi
       run_ctx agent repl "$agent" "${session[@]}" "${raw[@]}"
       ;;

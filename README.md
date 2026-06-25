@@ -27,6 +27,7 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ./agent.sh coder
 ./agent.sh coder "fix tests"
 ./agent.sh --chat coder
+./agent.sh --attach coder
 ./agent.sh --session default coder
 ./agent.sh --resume coder
 ./agent.sh --history coder
@@ -36,11 +37,10 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ./agent.sh --cancel coder
 ```
 
-With no prompt from an interactive TTY, `agent.sh AGENT` attaches to the agent
-terminal through `ctx agent attach AGENT`, starting it first with
-`ctx agent start AGENT` if needed, so the user sees `ctxterm -> tsh`. With a
-prompt, it delegates to `ctx agent send AGENT`. Use `agent.sh --chat AGENT` for
-the agent socket chat REPL.
+With no prompt, `agent.sh AGENT` opens the agent socket chat REPL through
+`ctx agent repl AGENT`. With a prompt, it delegates to
+`ctx agent send AGENT`. Use `agent.sh --attach AGENT` only when you want to join
+the agent terminal and see `ctxterm -> tsh`.
 
 When run from a CortexFS checkout, `agent.sh` prefers `../target/debug/ctx`
 or `../target/release/ctx` before the `ctx` found on `PATH`. Set `CTX_BIN` to

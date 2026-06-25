@@ -3,142 +3,121 @@ set -euo pipefail
 
 ROOT=$(mktemp -d)
 BIN=$(cd "$(dirname "$0")" && pwd)/agent.sh
-FAKE_BIN="$ROOT/bin"
-CTX="$ROOT/ctx"
-HOME_DIR="$CTX/home/1000"
-SESSION_DIR="$HOME_DIR/agent/coder/session/default"
-
-mkdir -p "$FAKE_BIN" "$CTX/agent" "$CTX/tool/fs.read.d" "$CTX/tool/shell.exec.d"
-mkdir -p "$HOME_DIR/tool/project.test.d" "$SESSION_DIR/context/child/rev-1"
-printf 'ready\n' >"$CTX/status"
-printf '# latest\nok\n' >"$SESSION_DIR/latest.md"
-printf '{"role":"user","content":"hello"}\n' >"$SESSION_DIR/messages.jsonl"
-printf '{"type":"start","run":"run-1"}\n{"type":"done","run":"run-1","status":"ok"}\n' >"$SESSION_DIR/events.jsonl"
-printf 'default\n' >"$HOME_DIR/agent/coder/session/index.current.tmp"
-mkdir -p "$HOME_DIR/agent/coder/session/index"
-mv "$HOME_DIR/agent/coder/session/index.current.tmp" "$HOME_DIR/agent/coder/session/index/current"
-printf '# pack\nfacts\n' >"$SESSION_DIR/context/pack.md"
-printf 'reviewer\n' >"$SESSION_DIR/context/child/rev-1/agent"
-printf 'done\n' >"$SESSION_DIR/context/child/rev-1/status"
-printf 'ready\n' >"$CTX/tool/fs.read.d/status"
-printf 'denied EACCES\n' >"$CTX/tool/fs.read.d/log"
-printf 'ready\n' >"$CTX/tool/shell.exec.d/status"
-printf 'ready\n' >"$HOME_DIR/tool/project.test.d/status"
-touch "$CTX/agent/coder" "$CTX/tool/fs.read" "$CTX/tool/shell.exec" "$HOME_DIR/tool/project.test"
-chmod +x "$CTX/agent/coder" "$CTX/tool/fs.read" "$CTX/tool/shell.exec" "$HOME_DIR/tool/project.test"
-
-cat >"$FAKE_BIN/nc" <<'EOF_NC'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >>"$NC_ARGS_FILE"
-cat >>"$NC_STDIN_FILE"
-printf '\n---\n' >>"$NC_STDIN_FILE"
-case "$(cat "$NC_MODE_FILE" 2>/dev/null || printf send)" in
-  resume) printf '{"type":"delta","text":"resumed"}\n{"type":"done","status":"ok"}\n' ;;
-  cancel) printf '{"type":"done","status":"cancelled"}\n' ;;
-  raw) printf '{"type":"delta","text":"raw-ok"}\n{"type":"done","status":"ok"}\n' ;;
-  error) printf '{"type":"error","code":"EACCES","message":"permission denied"}\n{"type":"done","status":"error"}\n' ;;
-  refused) printf 'nc: /ctx/agent/coder.sock: Connection refused\n' >&2; exit 1 ;;
-  fail) exit 111 ;;
-  *) printf '{"type":"start","run":"run-2"}\n{"type":"delta","text":"socket-ok"}\n{"type":"message","role":"assistant","text":"done"}\n{"type":"done","status":"ok"}\n' ;;
-esac
-EOF_NC
-chmod +x "$FAKE_BIN/nc"
+FAKE_CTX="$ROOT/ctx"
+LOG="$ROOT/ctx.log"
 
 cleanup(){ rm -rf "$ROOT"; }
 trap cleanup EXIT
 
 assert_contains(){ case "$1" in *"$2"*) ;; *) printf 'missing %s in %s\n' "$2" "$1" >&2; exit 1 ;; esac; }
 assert_not_contains(){ case "$1" in *"$2"*) printf 'unexpected %s in %s\n' "$2" "$1" >&2; exit 1 ;; *) ;; esac; }
+last_call(){ tail -n 1 "$LOG"; }
+
+cat >"$FAKE_CTX" <<'EOF_CTX'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"$CTX_FAKE_LOG"
+case "$*" in
+  "agent send coder hello socket") printf 'sent\n' ;;
+  "agent send coder --session focus use focus") printf 'sent focus\n' ;;
+  "agent send coder --raw raw") printf '{"type":"delta","text":"raw-ok"}\n' ;;
+  "agent repl coder") printf 'repl\n' ;;
+  "agent repl coder --session focus") printf 'repl focus\n' ;;
+  "agent repl coder --raw") printf 'repl raw\n' ;;
+  "agent resume coder") printf 'resumed\n' ;;
+  "agent history coder") printf '{"role":"user","content":"hello"}\n' ;;
+  "agent output coder") printf '# latest\nok\n' ;;
+  "agent pack coder") printf '# pack\nfacts\n' ;;
+  "agent tools coder") printf 'fs.read\nproject.test\n' ;;
+  "agent children coder") printf 'rev-1\tdone\n' ;;
+  "agent cancel coder run-1") printf 'cancelled\n' ;;
+  "agent status coder") printf 'agent=coder\nsession=default\n' ;;
+  "agent attach coder")
+    if [[ -f "$CTX_FAKE_ATTACH_OK" ]]; then
+      printf 'tsh>\n'
+      exit 0
+    fi
+    printf 'ctx: terminal is not running\nrun: ctx agent start coder --session default\n' >&2
+    exit 69
+    ;;
+  "agent start coder")
+    printf 'started\n'
+    : >"$CTX_FAKE_ATTACH_OK"
+    ;;
+  *) printf 'unexpected ctx args: %s\n' "$*" >&2; exit 64 ;;
+esac
+EOF_CTX
+chmod +x "$FAKE_CTX"
 
 bash -n "$BIN"
 
-sock="$CTX/agent/coder.sock"
-/usr/bin/nc -lU "$sock" >/dev/null 2>&1 &
-listener=$!
-for _ in 1 2 3 4 5; do [[ -S "$sock" ]] && break; sleep 0.1; done
-kill "$listener" 2>/dev/null || true
-[[ -S "$sock" ]] || { printf 'failed to create test socket\n' >&2; exit 1; }
-chmod 666 "$sock"
+export CTX_BIN="$FAKE_CTX"
+export CTX_FAKE_LOG="$LOG"
+export CTX_FAKE_ATTACH_OK="$ROOT/attach.ok"
+: >"$LOG"
 
-export NC_ARGS_FILE="$ROOT/nc.args" NC_STDIN_FILE="$ROOT/nc.stdin" NC_MODE_FILE="$ROOT/nc.mode"
+out=$("$BIN" coder "hello socket")
+assert_contains "$out" 'sent'
+assert_contains "$(last_call)" 'agent send coder hello socket'
 
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" coder "hello socket")
-assert_contains "$out" 'socket-ok'
-assert_contains "$(cat "$ROOT/nc.args")" "$CTX/agent/coder.sock"
-stdin=$(cat "$ROOT/nc.stdin")
-assert_contains "$stdin" '"op":"send"'
-assert_contains "$stdin" '"session":"default"'
-assert_contains "$stdin" '"input":"hello socket"'
+out=$("$BIN" --session focus coder "use focus")
+assert_contains "$out" 'sent focus'
+assert_contains "$(last_call)" 'agent send coder --session focus use focus'
 
-printf 'fail\n' >"$ROOT/nc.mode"
-if PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" coder "fail socket"; then
-  printf 'send failure unexpectedly succeeded\n' >&2
-  exit 1
-fi
+out=$(printf '/exit\n' | "$BIN" coder)
+assert_contains "$out" 'repl'
+assert_contains "$(last_call)" 'agent repl coder'
+assert_not_contains "$(cat "$LOG")" 'agent attach coder'
 
-printf 'refused\n' >"$ROOT/nc.mode"
-stderr="$ROOT/refused.stderr"
-if PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" coder "refused socket" 2>"$stderr"; then
-  printf 'connection refused unexpectedly succeeded\n' >&2
-  exit 1
-fi
-refused_err=$(cat "$stderr")
-assert_contains "$refused_err" 'Connection refused'
-assert_contains "$refused_err" "sudo systemctl start 'cortexfs-agent@coder.socket'"
-assert_contains "$refused_err" "systemctl status 'cortexfs-agent@coder.socket' --no-pager"
+out=$(printf '/exit\n' | "$BIN" --session focus coder)
+assert_contains "$out" 'repl focus'
+assert_contains "$(last_call)" 'agent repl coder --session focus'
 
-printf 'send\n' >"$ROOT/nc.mode"
+out=$(printf '/exit\n' | "$BIN" --chat coder)
+assert_contains "$out" 'repl'
+assert_contains "$(last_call)" 'agent repl coder'
 
-: >"$ROOT/nc.stdin"
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --session focus coder "use focus")
-assert_contains "$out" 'socket-ok'
-assert_contains "$(cat "$ROOT/nc.stdin")" '"session":"focus"'
-
-printf 'resume\n' >"$ROOT/nc.mode"
-: >"$ROOT/nc.stdin"
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --resume coder)
+out=$("$BIN" --resume coder)
 assert_contains "$out" 'resumed'
-assert_contains "$(cat "$ROOT/nc.stdin")" '"op":"resume"'
+assert_contains "$(last_call)" 'agent resume coder'
 
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --history coder)
+out=$("$BIN" --history coder)
 assert_contains "$out" '"role":"user"'
+assert_contains "$(last_call)" 'agent history coder'
 
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --latest coder)
-assert_contains "$out" '# latest'
-
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --pack coder)
+out=$("$BIN" --pack coder)
 assert_contains "$out" '# pack'
+assert_contains "$(last_call)" 'agent pack coder'
 
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" CTX_PATH="$CTX/tool:$HOME_DIR/tool" "$BIN" --tools coder)
+out=$("$BIN" --tools coder)
 assert_contains "$out" 'fs.read'
 assert_contains "$out" 'project.test'
-assert_not_contains "$out" 'coder'
+assert_contains "$(last_call)" 'agent tools coder'
 
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --children coder)
+out=$("$BIN" --children coder)
 assert_contains "$out" 'rev-1'
-assert_contains "$out" 'done'
+assert_contains "$(last_call)" 'agent children coder'
 
-printf 'cancel\n' >"$ROOT/nc.mode"
-: >"$ROOT/nc.stdin"
-PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --cancel coder >/dev/null
-assert_contains "$(cat "$ROOT/nc.stdin")" '"op":"cancel"'
-assert_contains "$(cat "$ROOT/nc.stdin")" '"id":"run-1"'
+out=$("$BIN" --cancel coder run-1)
+assert_contains "$out" 'cancelled'
+assert_contains "$(last_call)" 'agent cancel coder run-1'
 
-printf 'raw\n' >"$ROOT/nc.mode"
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --raw coder raw)
-assert_contains "$out" '"type":"delta"'
-
-printf 'send\n' >"$ROOT/nc.mode"
-: >"$ROOT/nc.stdin"
-printf 'one\n\n/two\n/status\n/exit\n' | PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" coder >/dev/null 2>/dev/null || true
-assert_contains "$(cat "$ROOT/nc.stdin")" '"input":"one"'
-assert_not_contains "$(cat "$ROOT/nc.stdin")" '"input":"/status"'
-
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" "$BIN" --status coder)
+out=$("$BIN" --status coder)
 assert_contains "$out" 'agent=coder'
-assert_contains "$out" 'session=default'
+assert_contains "$(last_call)" 'agent status coder'
 
-out=$(PATH="$FAKE_BIN:$PATH" CTX_ROOT="$CTX" CTX_HOME="$HOME_DIR" CTX_PATH="$CTX/tool" "$BIN" --tool-log coder fs.read)
-assert_contains "$out" 'EACCES'
+out=$("$BIN" --raw coder raw)
+assert_contains "$out" '"type":"delta"'
+assert_contains "$(last_call)" 'agent send coder --raw raw'
+
+rm -f "$CTX_FAKE_ATTACH_OK"
+out=$("$BIN" --attach coder)
+assert_contains "$out" 'tsh>'
+assert_contains "$(cat "$LOG")" 'agent attach coder'
+assert_contains "$(cat "$LOG")" 'agent start coder'
+
+help=$("$BIN" --help)
+assert_contains "$help" 'agent.sh --attach AGENT'
+assert_contains "$help" 'With no INPUT, it opens the agent chat REPL'
 
 printf 'agent.sh tests passed\n'
