@@ -73,6 +73,24 @@ run_ctx(){
   exec "$ctx_bin" "${args[@]}"
 }
 
+ctx_command(){
+  local ctx_bin
+  ctx_bin=$(resolve_ctx)
+  "$ctx_bin" "$@"
+}
+
+attach_or_start_terminal(){
+  local agent=$1
+  shift
+  local -a session=("$@")
+  if ctx_command agent attach "$agent" "${session[@]}"; then
+    return 0
+  fi
+  err "terminal is not running; starting agent terminal"
+  ctx_command agent start "$agent" "${session[@]}"
+  exec "$(resolve_ctx)" agent attach "$agent" "${session[@]}"
+}
+
 parse_args(){
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -118,7 +136,7 @@ parse_args(){
         run_ctx agent send "$agent" "${session[@]}" "${raw[@]}" "$*"
       fi
       if [[ -t 0 ]]; then
-        run_ctx agent attach "$agent" "${session[@]}"
+        attach_or_start_terminal "$agent" "${session[@]}"
       fi
       run_ctx agent repl "$agent" "${session[@]}" "${raw[@]}"
       ;;
@@ -128,7 +146,7 @@ parse_args(){
       fi
       run_ctx agent repl "$agent" "${session[@]}" "${raw[@]}"
       ;;
-    attach) run_ctx agent attach "$agent" "${session[@]}" ;;
+    attach) attach_or_start_terminal "$agent" "${session[@]}" ;;
     watch) run_ctx agent watch "$agent" "${session[@]}" ;;
     resume) run_ctx agent resume "$agent" "${session[@]}" "${raw[@]}" ;;
     history) run_ctx agent history "$agent" "${session[@]}" ;;
