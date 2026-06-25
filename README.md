@@ -1,7 +1,7 @@
 # agent.sh
 
-`agent.sh` is a tiny Linux shell frontend for the CortexFS v1 agent ABI. It is
-not a runtime, provider SDK, policy engine, scheduler, or chat database.
+`agent.sh` is a compatibility wrapper over `ctx agent` commands. It is not a
+runtime, provider SDK, policy engine, scheduler, or chat database.
 
 It only uses stable v1 paths:
 
@@ -29,7 +29,6 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ./agent.sh --session default coder
 ./agent.sh --resume coder
 ./agent.sh --history coder
-./agent.sh --latest coder
 ./agent.sh --pack coder
 ./agent.sh --tools coder
 ./agent.sh --children coder
@@ -37,7 +36,8 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ```
 
 With no prompt, `agent.sh AGENT` reads lines from stdin or an interactive TTY
-and sends each non-empty line to `/ctx/agent/<agent>.sock`.
+through `ctx agent repl AGENT`. With a prompt, it delegates to
+`ctx agent send AGENT`.
 
 Socket requests are JSONL:
 
@@ -47,12 +47,8 @@ Socket requests are JSONL:
 {"op":"cancel","id":"run-1"}
 ```
 
-Responses are rendered as assistant text by default. Set `CORTEX_RAW_EVENTS=1`
-or pass `--raw` to print raw JSONL.
-
-Interactive TTY output uses color by default. Set `CORTEX_COLOR=always` to
-force color, `CORTEX_COLOR=never` to disable it, or `NO_COLOR=1` for the
-standard no-color convention.
+Responses are rendered by `ctx agent` as assistant text by default. Pass
+`--raw` to print raw JSONL.
 
 ## Sessions
 
@@ -68,6 +64,9 @@ $CTX_HOME/agent/<agent>/session/<session>/context/
 
 If no session is selected, `index/current` is used when present, otherwise
 `default`.
+
+Use `ctx agent output <agent>` to print the latest assistant output for the
+selected session.
 
 ## Tools And Children
 
