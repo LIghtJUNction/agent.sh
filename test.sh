@@ -85,6 +85,10 @@ out=$("$BIN" --history coder)
 assert_contains "$out" '"role":"user"'
 assert_contains "$(last_call)" 'agent history coder'
 
+out=$("$BIN" --output coder)
+assert_contains "$out" '# latest'
+assert_contains "$(last_call)" 'agent output coder'
+
 out=$("$BIN" --pack coder)
 assert_contains "$out" '# pack'
 assert_contains "$(last_call)" 'agent pack coder'
@@ -118,6 +122,7 @@ assert_contains "$(cat "$LOG")" 'agent start coder'
 
 help=$("$BIN" --help)
 assert_contains "$help" 'agent.sh --attach AGENT'
+assert_contains "$help" 'agent.sh --output AGENT'
 assert_contains "$help" 'With no INPUT, it opens the agent chat REPL'
 
 printf 'agent.sh tests passed\n'
