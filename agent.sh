@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SESSION=${CORTEX_SESSION:-}
-MODE=repl
+MODE=auto
 RAW=0
 CTX_BIN=${CTX_BIN:-}
 
@@ -12,8 +12,9 @@ die(){ err "$*"; exit 1; }
 usage(){
   cat <<'EOF_USAGE'
 usage:
-  agent.sh [--session SESSION] AGENT [INPUT...]
-  agent.sh --session default AGENT
+  agent.sh [--session SESSION] AGENT
+  agent.sh [--session SESSION] AGENT INPUT...
+  agent.sh --chat AGENT
   agent.sh --resume AGENT
   agent.sh --history AGENT
   agent.sh --pack AGENT
@@ -24,6 +25,7 @@ usage:
   agent.sh --raw AGENT "prompt"
 
 agent.sh is a compatibility wrapper over ctx agent commands.
+With no INPUT, it attaches to the agent terminal.
 EOF_USAGE
 }
 
@@ -84,6 +86,9 @@ parse_args(){
         shift
         ;;
       --resume) MODE=resume; shift ;;
+      --chat|--repl) MODE=repl; shift ;;
+      --attach) MODE=attach; shift ;;
+      --watch) MODE=watch; shift ;;
       --history) MODE=history; shift ;;
       --pack) MODE=pack; shift ;;
       --tools) MODE=tools; shift ;;
@@ -108,12 +113,23 @@ parse_args(){
   while IFS= read -r item; do raw+=("$item"); done < <(raw_args)
 
   case "$MODE" in
+    auto)
+      if [[ $# -gt 0 ]]; then
+        run_ctx agent send "$agent" "${session[@]}" "${raw[@]}" "$*"
+      fi
+      if [[ -t 0 ]]; then
+        run_ctx agent attach "$agent" "${session[@]}"
+      fi
+      run_ctx agent repl "$agent" "${session[@]}" "${raw[@]}"
+      ;;
     repl)
       if [[ $# -gt 0 ]]; then
         run_ctx agent send "$agent" "${session[@]}" "${raw[@]}" "$*"
       fi
       run_ctx agent repl "$agent" "${session[@]}" "${raw[@]}"
       ;;
+    attach) run_ctx agent attach "$agent" "${session[@]}" ;;
+    watch) run_ctx agent watch "$agent" "${session[@]}" ;;
     resume) run_ctx agent resume "$agent" "${session[@]}" "${raw[@]}" ;;
     history) run_ctx agent history "$agent" "${session[@]}" ;;
     output) run_ctx agent output "$agent" "${session[@]}" ;;
