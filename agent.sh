@@ -18,6 +18,7 @@ usage:
   agent.sh --attach AGENT
   agent.sh --resume AGENT
   agent.sh --history AGENT
+  agent.sh --output AGENT
   agent.sh --pack AGENT
   agent.sh --tools AGENT
   agent.sh --children AGENT
@@ -109,6 +110,7 @@ parse_args(){
       --attach) MODE=attach; shift ;;
       --watch) MODE=watch; shift ;;
       --history) MODE=history; shift ;;
+      --output) MODE=output; shift ;;
       --pack) MODE=pack; shift ;;
       --tools) MODE=tools; shift ;;
       --children) MODE=children; shift ;;
