@@ -32,6 +32,7 @@ case "$*" in
   "agent children coder") printf 'rev-1\tdone\n' ;;
   "agent cancel coder run-1") printf 'cancelled\n' ;;
   "agent status coder") printf 'agent=coder\nsession=default\n' ;;
+  "agent watch coder") printf 'watching\n' ;;
   "agent attach coder")
     if [[ -f "$CTX_FAKE_ATTACH_OK" ]]; then
       printf 'tsh>\n'
@@ -120,8 +121,13 @@ assert_contains "$out" 'tsh>'
 assert_contains "$(cat "$LOG")" 'agent attach coder'
 assert_contains "$(cat "$LOG")" 'agent start coder'
 
+out=$("$BIN" --watch coder)
+assert_contains "$out" 'watching'
+assert_contains "$(last_call)" 'agent watch coder'
+
 help=$("$BIN" --help)
 assert_contains "$help" 'agent.sh --attach AGENT'
+assert_contains "$help" 'agent.sh --watch AGENT'
 assert_contains "$help" 'agent.sh --output AGENT'
 assert_contains "$help" 'With no INPUT, it opens the agent chat REPL'
 

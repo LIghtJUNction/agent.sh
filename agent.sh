@@ -16,6 +16,7 @@ usage:
   agent.sh [--session SESSION] AGENT INPUT...
   agent.sh --chat AGENT
   agent.sh --attach AGENT
+  agent.sh --watch AGENT
   agent.sh --resume AGENT
   agent.sh --history AGENT
   agent.sh --output AGENT
