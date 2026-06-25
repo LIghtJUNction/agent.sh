@@ -1,9 +1,13 @@
 # agent.sh
 
 `agent.sh` is a compatibility wrapper over `ctx agent` commands. It is not a
-runtime, provider SDK, policy engine, scheduler, or chat database.
+runtime, socket protocol implementation, provider SDK, policy engine,
+scheduler, or chat database.
 
-It only uses stable v1 paths:
+It depends on Bash and one `ctx` binary. All agent protocol behavior, line
+editing, response rendering, terminal attach, and socket IO stays inside `ctx`.
+
+The stable paths below are the CortexFS state that `ctx` reads and writes:
 
 ```text
 /ctx/agent/<agent>.sock
@@ -37,7 +41,7 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ./agent.sh --cancel coder
 ```
 
-With no prompt, `agent.sh AGENT` opens the agent socket chat REPL through
+With no prompt, `agent.sh AGENT` opens the agent chat REPL through
 `ctx agent repl AGENT`. With a prompt, it delegates to
 `ctx agent send AGENT`. Use `agent.sh --attach AGENT` only when you want to join
 the agent terminal and see `ctxterm -> tsh`.
@@ -50,7 +54,7 @@ force an exact ctx binary:
 CTX_BIN=/path/to/ctx ./agent.sh coder
 ```
 
-Socket requests are JSONL:
+The socket request shape used by `ctx` is JSONL:
 
 ```jsonl
 {"op":"send","id":"agent-sh-...","session":"default","scope":"private","cwd":"/work","input":"fix tests"}
@@ -58,8 +62,9 @@ Socket requests are JSONL:
 {"op":"cancel","id":"run-1"}
 ```
 
-Responses are rendered by `ctx agent` as assistant text by default. Pass
-`--raw` to print raw JSONL.
+Responses are rendered by `ctx agent` as assistant text by default. Interactive
+REPL responses are buffered before printing so model output does not corrupt the
+user's current input buffer. Pass `--raw` to print raw JSONL.
 
 ## Sessions
 
@@ -90,6 +95,6 @@ selected session.
 $CTX_HOME/agent/<agent>/session/<session>/context/child/
 ```
 
-The script is dependency-free in the project sense: no `jq`, Python, Node, npm,
-Cargo, cloud SDK, provider client, or package manager. Linux `nc` with Unix
-socket support is used for socket transport.
+The script is dependency-free in the project sense: no `nc`, `jq`, Python,
+Node, npm, Cargo, cloud SDK, provider client, package manager, or direct
+provider API.
