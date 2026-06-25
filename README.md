@@ -39,6 +39,14 @@ With no prompt, `agent.sh AGENT` reads lines from stdin or an interactive TTY
 through `ctx agent repl AGENT`. With a prompt, it delegates to
 `ctx agent send AGENT`.
 
+When run from a CortexFS checkout, `agent.sh` prefers `../target/debug/ctx`
+or `../target/release/ctx` before the `ctx` found on `PATH`. Set `CTX_BIN` to
+force an exact ctx binary:
+
+```bash
+CTX_BIN=/path/to/ctx ./agent.sh coder
+```
+
 Socket requests are JSONL:
 
 ```jsonl
