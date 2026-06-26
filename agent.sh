@@ -26,4 +26,86 @@ resolve_ctx(){
   command -v ctx
 }
 
-exec "$(resolve_ctx)" agent-sh "$@"
+usage(){
+  cat <<'EOF'
+usage:
+  agent.sh [--session SESSION] [--raw] AGENT [INPUT...]
+  agent.sh --start [--session SESSION] AGENT [CTX_AGENT_START_ARGS...]
+  agent.sh --attach|--watch|--resume|--history|--output|--pack|--tools|--children|--status [--session SESSION] AGENT
+  agent.sh --cancel [--session SESSION] AGENT [RUN]
+
+agent.sh is a small default wrapper over ctx agent.
+EOF
+}
+
+ctx=$(resolve_ctx)
+session=default
+raw=()
+mode=auto
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --session|-s)
+      [[ $# -ge 2 ]] || die "--session requires a value"
+      session=$2
+      shift 2
+      ;;
+    --raw)
+      raw=(--raw)
+      shift
+      ;;
+    --start|--attach|--watch|--resume|--history|--output|--pack|--tools|--children|--cancel|--status)
+      mode=${1#--}
+      shift
+      ;;
+    --chat|--repl)
+      mode=repl
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      die "unknown option: $1"
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+[[ $# -ge 1 ]] || die "missing agent name"
+agent=$1
+shift
+
+case "$mode" in
+  auto)
+    if [[ $# -gt 0 ]]; then
+      exec "$ctx" agent send "$agent" --session "$session" "${raw[@]}" "$*"
+    fi
+    exec "$ctx" agent repl "$agent" --session "$session" "${raw[@]}"
+    ;;
+  repl)
+    exec "$ctx" agent repl "$agent" --session "$session" "${raw[@]}"
+    ;;
+  start)
+    exec "$ctx" agent start "$agent" --session "$session" "$@"
+    ;;
+  attach|watch|resume|history|output|pack|children)
+    exec "$ctx" agent "$mode" "$agent" --session "$session" "$@"
+    ;;
+  cancel)
+    exec "$ctx" agent cancel "$agent" --session "$session" "${raw[@]}" "$@"
+    ;;
+  tools|status)
+    exec "$ctx" agent "$mode" "$agent" "$@"
+    ;;
+  *)
+    die "unknown mode: $mode"
+    ;;
+esac

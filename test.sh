@@ -17,11 +17,10 @@ cat >"$FAKE_CTX" <<'EOF_CTX'
 set -euo pipefail
 printf '%s\n' "$*" >>"$CTX_FAKE_LOG"
 case "$*" in
-  "agent-sh coder hello socket") printf 'sent\n' ;;
-  "agent-sh coder help") printf 'help sent\n' ;;
-  "agent-sh --session focus coder use focus") printf 'sent focus\n' ;;
-  "agent-sh --attach coder") printf 'tsh>\n' ;;
-  "agent-sh --help") printf 'usage\n' ;;
+  "agent send coder --session default hello socket") printf 'sent\n' ;;
+  "agent send coder --session default help") printf 'help sent\n' ;;
+  "agent send coder --session focus use focus") printf 'sent focus\n' ;;
+  "agent attach coder --session default") printf 'tsh>\n' ;;
   *) printf 'unexpected ctx args: %s\n' "$*" >&2; exit 64 ;;
 esac
 EOF_CTX
@@ -35,20 +34,19 @@ export CTX_FAKE_LOG="$LOG"
 
 out=$("$BIN" coder "hello socket")
 assert_contains "$out" 'sent'
-assert_contains "$(last_call)" 'agent-sh coder hello socket'
+assert_contains "$(last_call)" 'agent send coder --session default hello socket'
 
 out=$("$BIN" coder help)
 assert_contains "$out" 'help sent'
-assert_contains "$(last_call)" 'agent-sh coder help'
+assert_contains "$(last_call)" 'agent send coder --session default help'
 
 out=$("$BIN" --session focus coder "use focus")
 assert_contains "$out" 'sent focus'
-assert_contains "$(last_call)" 'agent-sh --session focus coder use focus'
+assert_contains "$(last_call)" 'agent send coder --session focus use focus'
 
 out=$("$BIN" --attach coder)
 assert_contains "$out" 'tsh>'
-assert_contains "$(last_call)" 'agent-sh --attach coder'
+assert_contains "$(last_call)" 'agent attach coder --session default'
 
 help=$("$BIN" --help)
 assert_contains "$help" 'usage'
-assert_contains "$(last_call)" 'agent-sh --help'
