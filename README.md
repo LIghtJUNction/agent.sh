@@ -31,6 +31,7 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ./agent.sh coder
 ./agent.sh coder "fix tests"
 ./agent.sh --chat coder
+./agent.sh --repl coder
 ./agent.sh --attach coder
 ./agent.sh --watch coder
 ./agent.sh --session default coder

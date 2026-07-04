@@ -30,6 +30,7 @@ usage(){
   cat <<'EOF'
 usage:
   agent.sh [--session SESSION] [--raw] AGENT [INPUT...]
+  agent.sh --chat|--repl [--session SESSION] [--raw] AGENT
   agent.sh --start [--session SESSION] AGENT [CTX_AGENT_START_ARGS...]
   agent.sh --attach|--watch|--resume|--history|--output|--pack|--tools|--children|--status [--session SESSION] AGENT
   agent.sh --cancel [--session SESSION] AGENT [RUN]
