@@ -42,8 +42,8 @@ export CTX_PATH="$CTX_ROOT/tool:$CTX_HOME/tool"
 ./agent.sh --cancel coder
 ```
 
-With no prompt, `agent.sh AGENT` opens the agent chat REPL through
-`ctx agent repl AGENT`. With a prompt, it dispatches to
+With no prompt, `agent.sh AGENT` opens the agent chat UI through
+`ctx agent chat AGENT`. With a prompt, it dispatches to
 `ctx agent send AGENT`. Use `agent.sh --watch AGENT` to observe the agent
 terminal read-only, or `agent.sh --attach AGENT` when you want to join the
 terminal and see `ctxterm -> tsh`.

@@ -20,6 +20,7 @@ case "$*" in
   "agent send coder --session default hello socket") printf 'sent\n' ;;
   "agent send coder --session default help") printf 'help sent\n' ;;
   "agent send coder --session focus use focus") printf 'sent focus\n' ;;
+  "agent chat coder --session default") printf 'chat>\n' ;;
   "agent attach coder --session default") printf 'tsh>\n' ;;
   *) printf 'unexpected ctx args: %s\n' "$*" >&2; exit 64 ;;
 esac
@@ -43,6 +44,10 @@ assert_contains "$(last_call)" 'agent send coder --session default help'
 out=$("$BIN" --session focus coder "use focus")
 assert_contains "$out" 'sent focus'
 assert_contains "$(last_call)" 'agent send coder --session focus use focus'
+
+out=$("$BIN" --chat coder)
+assert_contains "$out" 'chat>'
+assert_contains "$(last_call)" 'agent chat coder --session default'
 
 out=$("$BIN" --attach coder)
 assert_contains "$out" 'tsh>'

@@ -63,7 +63,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --chat|--repl)
-      mode=repl
+      mode=chat
       shift
       ;;
     --)
@@ -88,10 +88,10 @@ case "$mode" in
     if [[ $# -gt 0 ]]; then
       exec "$ctx" agent send "$agent" --session "$session" "${raw[@]}" "$*"
     fi
-    exec "$ctx" agent repl "$agent" --session "$session" "${raw[@]}"
+    exec "$ctx" agent chat "$agent" --session "$session" "${raw[@]}"
     ;;
-  repl)
-    exec "$ctx" agent repl "$agent" --session "$session" "${raw[@]}"
+  chat)
+    exec "$ctx" agent chat "$agent" --session "$session" "${raw[@]}"
     ;;
   start)
     exec "$ctx" agent start "$agent" --session "$session" "$@"
