@@ -11,7 +11,7 @@ resolve_ctx(){
   fi
 
   local script_dir candidate
-  script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+  script_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
   for candidate in \
     "$script_dir/../target/debug/ctx" \
     "$script_dir/../target/release/ctx"
